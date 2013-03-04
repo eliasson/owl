@@ -1,0 +1,10 @@
+src/spotify_key.h
+.DS_Store
+.settings
+.cache
+.config
+*.sublime-project
+owl
+unittest
+
+owl.sublime-workspace
