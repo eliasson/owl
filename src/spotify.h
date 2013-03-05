@@ -32,16 +32,7 @@ struct spotify_state {
     struct owl_queue *queue;
 };
 
-// Internal representation of a track, this is the object used in the queue
-struct owl_track {
-    // The Spotify link as a string
-    char *link;
-    // The JSON representation of this track
-    char *json;
-};
-
 typedef struct spotify_state spotify_state;
-typedef struct owl_track owl_track;
 
 //
 // Create the Spotify state initialize its members (queue will be initialied but empty)
@@ -52,17 +43,5 @@ spotify_state* new_spotify_state();
 // Free any resources allocaed when constructing the Spotify state
 //
 void free_spotify_state(spotify_state *state);
-
-//
-// Creata a new internal representation of a track. This does not contain any references to
-// Spotify objects, only meta-data so it can be resolved to a Spotify track later on.
-//
-// All members will be initialized to NULL or zero.
-owl_track* new_track();
-
-//
-// Free any resources allocated when created the track
-// 
-void free_track(struct owl_track *track);
 
 #endif // OWL_SPOTIFY_H

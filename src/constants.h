@@ -14,8 +14,17 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#ifndef OWL_ERRORS_H
-#define OWL_ERRORS_H
+#ifndef OWL_CONSTANTS_H
+#define OWL_CONSTANTS_H
+
+// States in the application state machine
+#define OWL_STATE_NOT_STARTED               0x01    // Application is not fully started yet (initial state)
+#define OWL_STATE_INITIALIZED               0x02    // Application is initialized, but user is not logged in
+#define OWL_STATE_LOGGING_IN                0x03    // Application is trying to login to Spotify
+#define OWL_STATE_IDLE                      0x04    // User is logged in, but no ongoing activity
+#define OWL_STATE_PLAYING                   0x05    // User is logged in and playing music
+#define OWL_STATE_LOGGING_OUT               0x06    // Application is trying to logout from Spotify
+#define OWL_STATE_SHUTTING_DOWN             0x07    // Application is shutting down
 
 // Client side errors used in the HTTP API
 #define OWL_HTTP_NO_ERROR                   ( 000)
@@ -28,4 +37,4 @@
 #define OWL_HTTP_ERROR_RESOLVING_LINK       (-140)
 #define OWL_HTTP_ERROR_QUEUE_FULL           (-150)
 
-#endif // OWL_ERRORS_H
+#endif // OWL_CONSTANTS_H

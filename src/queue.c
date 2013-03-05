@@ -21,7 +21,7 @@
 #include "logging.h"
 
 struct owl_item {
-    void *item;
+    struct owl_track *item;
     struct owl_item *next;
 };
 
@@ -32,8 +32,34 @@ struct owl_queue {
     struct owl_item *tail;
 };
 
-struct owl_queue* new_queue(int capacity) {
-    struct owl_queue *queue = malloc(sizeof(owl_queue));
+//
+// Creates a new (empty) track
+//
+owl_track* new_track() {
+    owl_track* track = malloc(sizeof(owl_track));
+    track->link = NULL;
+    track->json = NULL;
+    
+    return track;
+}
+
+//
+// Frees any resources allocated when creating the track.
+//
+void free_track(owl_track *track) {
+    if(track == NULL)
+        return;
+    
+    if(track->link != NULL)
+        free(track->link);
+    if(track->json != NULL)
+        free(track->json);
+    free(track);
+    track = NULL;
+}
+
+owl_queue* new_queue(int capacity) {
+    owl_queue *queue = malloc(sizeof(owl_queue));
     queue->capacity = capacity;
     queue->size = 0;
     queue->head = NULL;
@@ -42,27 +68,39 @@ struct owl_queue* new_queue(int capacity) {
     return queue;
 }
 
-struct owl_item* new_item(void* item) {
-    struct owl_item *owl_item = malloc(sizeof(owl_item));
-    owl_item->item = item;
+owl_item* new_item(owl_track *track) {
+    owl_item *owl_item = malloc(sizeof(owl_item));
+    owl_item->item = track;
     owl_item->next = NULL;
 
     return owl_item;
 }
 
-void free_queue(struct owl_queue *queue) {
-    // TODO: Should we iterate and release all items as well?
-    // We do not know what is store there 
-    free(queue);
+void free_item(owl_item *item) {
+    if(item->item != NULL)
+        free_track(item->item);
+    free(item);
+    item = NULL;
 }
 
-int append_to_queue(struct owl_queue *queue, void* item) {
+void free_queue(owl_queue *queue) {
+    owl_item *item = queue->head;    
+    while(item != NULL) {
+        owl_item *old = item;
+        item = item->next;
+        free_item(old);
+    }
+    free(queue);
+    queue = NULL;
+}
+
+int append_to_queue(owl_queue *queue, owl_track *track) {
     if(queue == NULL) {
         WARN("Trying to add to a NULL queue\n");
         return 0;
     }
 
-    if(item == NULL) {
+    if(track == NULL) {
         WARN("Trying to add NULL item to queue, seems strage!\n");
         return 0;
     }
@@ -75,7 +113,7 @@ int append_to_queue(struct owl_queue *queue, void* item) {
     if(queue->head == NULL && queue->tail == NULL) {
         TRACE("Adding first item to empty queue\n");
 
-        struct owl_item *queue_item = new_item(item);
+        owl_item *queue_item = new_item(track);
         
         queue->head = queue->tail = queue_item;
         queue->size++;
@@ -85,7 +123,7 @@ int append_to_queue(struct owl_queue *queue, void* item) {
         return 0;
     }
     else {
-        struct owl_item *queue_item = new_item(item);
+        owl_item *queue_item = new_item(track);
 
         queue->tail->next = queue_item;
         queue->tail = queue_item;
@@ -95,7 +133,7 @@ int append_to_queue(struct owl_queue *queue, void* item) {
     return 1;
 }
 
-int remove_from_queue(struct owl_queue *queue, void* item) {
+int remove_from_queue(owl_queue *queue, owl_track *track) {
     if(queue == NULL) {
         WARN("Trying to remove from a NULL queue\n");
         return 0;
@@ -110,8 +148,8 @@ int remove_from_queue(struct owl_queue *queue, void* item) {
         return 0;
     }
     else if(queue->size == 1) {
-        if(queue->head->item == item) {
-            struct owl_item *current = queue->head;
+        if(queue->head->item == track) {
+            owl_item *current = queue->head;
             queue->head = NULL;
             queue->tail = NULL;
             queue->size--;
@@ -120,14 +158,14 @@ int remove_from_queue(struct owl_queue *queue, void* item) {
         }
     }
     else {
-        struct owl_item *i = queue->head;
+        owl_item *i = queue->head;
         while(i != NULL) {
             // Always look one item ahead
             if(i->next != NULL) {
-                if(i->next->item == item) {
+                if(i->next->item == track) {
                     // Ok, next item is the one we're looking for
-                    struct owl_item *to_remove = i->next;
-                    struct owl_item *next_next = i->next->next; // Might be NULL if last element in queue
+                    owl_item *to_remove = i->next;
+                    owl_item *next_next = i->next->next; // Might be NULL if last element in queue
 
                     i->next = next_next;
                     queue->size--;
@@ -143,7 +181,7 @@ int remove_from_queue(struct owl_queue *queue, void* item) {
     return 0;
 }
 
-void* pop_from_queue(struct owl_queue *queue) {
+owl_track* pop_from_queue(owl_queue *queue) {
     if(queue == NULL) {
         WARN("Trying to add to a NULL queue\n");
         return NULL;
@@ -154,7 +192,7 @@ void* pop_from_queue(struct owl_queue *queue) {
         return NULL;
     }
     else if(queue->size == 1) {
-        struct owl_item *current_head = queue->head;
+        owl_item *current_head = queue->head;
         queue->head = queue->tail = NULL;
         queue->size = 0;
 
@@ -167,8 +205,8 @@ void* pop_from_queue(struct owl_queue *queue) {
         return NULL;
     }
     else {
-        struct owl_item *current_head = queue->head;
-        struct owl_item *new_head = current_head->next;
+        owl_item *current_head = queue->head;
+        owl_item *new_head = current_head->next;
         queue->head = new_head;
         queue->size--;
 
@@ -180,13 +218,13 @@ void* pop_from_queue(struct owl_queue *queue) {
     return NULL;
 }
 
-void* item_at(struct owl_queue *queue, const int index) {
+owl_track* item_at(owl_queue *queue, const int index) {
     if(index >= queue->size) {
         ERROR("Trying to get item out of bounds (index %d but size is %d)\n", index, queue->size);
         return NULL;
     }
 
-    struct owl_item *item = queue->head;
+    owl_item *item = queue->head;
 
     int counter = 0;
     while(item != NULL) {    
@@ -201,14 +239,14 @@ void* item_at(struct owl_queue *queue, const int index) {
     return NULL;
 }
 
-int queue_size(struct owl_queue *queue) {
+int queue_size(owl_queue *queue) {
     if(queue == NULL)
         return 0;
 
     return queue->size;
 }
 
-int queue_capacity(struct owl_queue *queue) {
+int queue_capacity(owl_queue *queue) {
     if(queue == NULL)
         return 0;
 

@@ -114,10 +114,6 @@ static void test_create_queue() {
     TEST;
 }
 
-static void* create_dummy_item() {
-    return malloc(1);
-}
-
 static void test_empty_queue() {
     struct owl_queue *q = new_queue(10);
 
@@ -137,7 +133,7 @@ static void test_empty_queue() {
 static void test_impossible_queue() {
     struct owl_queue *q = new_queue(0);
 
-    void* item = create_dummy_item();
+    void* item = new_track();
     if(append_to_queue(q, item) != 0) {
         FAILURE("Should not be able to append to zero capacity\n");
     }
@@ -150,12 +146,12 @@ static void test_impossible_queue() {
 static void test_small_queue() {
     struct owl_queue *q = new_queue(5);
 
-    void* item1 = create_dummy_item();
-    void* item2 = create_dummy_item();
-    void* item3 = create_dummy_item();
-    void* item4 = create_dummy_item();
-    void* item5 = create_dummy_item();
-    void* item6 = create_dummy_item();
+    void* item1 = new_track();
+    void* item2 = new_track();
+    void* item3 = new_track();
+    void* item4 = new_track();
+    void* item5 = new_track();
+    void* item6 = new_track();
 
     if(append_to_queue(q, item1) != 1) {
         FAILURE("Should be able to append to queue\n");
@@ -215,9 +211,9 @@ static void test_small_queue() {
 static void test_remove_from_queue() {
     struct owl_queue *q = new_queue(5);
 
-    void* item1 = create_dummy_item();
-    void* item2 = create_dummy_item();
-    void* item3 = create_dummy_item();
+    void* item1 = new_track();
+    void* item2 = new_track();
+    void* item3 = new_track();
 
     append_to_queue(q, item1);
     if(queue_size(q) != 1) {
@@ -259,10 +255,6 @@ static void test_remove_from_queue() {
     }
     TEST;
 
-    free(item3);
-    free(item2);
-    free(item1);
-
     free_queue(q);
 }
 
@@ -270,7 +262,7 @@ static void test_big_queue() {
     const int BIG = 10000;
     struct owl_queue *q = new_queue(BIG);
     for(int i = 0; i < BIG; i++) {
-       append_to_queue(q, create_dummy_item());
+       append_to_queue(q, new_track());
     }
 
     if(queue_size(q) != BIG) {
@@ -280,8 +272,8 @@ static void test_big_queue() {
 
     // Cleanup
     for(int i = 0; i < BIG; i++) {
-        void *item = pop_from_queue(q);
-        free(item);
+        owl_track *item = pop_from_queue(q);
+        free_track(item);
     }
 
     if(queue_size(q) != 0) {
@@ -295,10 +287,10 @@ static void test_big_queue() {
 static void test_iterate_queue() {
     struct owl_queue *q = new_queue(5);
 
-    void* item1 = create_dummy_item();
-    void* item2 = create_dummy_item();
-    void* item3 = create_dummy_item();
-    void* item4 = create_dummy_item();
+    void* item1 = new_track();
+    void* item2 = new_track();
+    void* item3 = new_track();
+    void* item4 = new_track();
 
     append_to_queue(q, item1);
     append_to_queue(q, item2);
@@ -325,10 +317,6 @@ static void test_iterate_queue() {
     }
     TEST;
 
-    free(item4);
-    free(item3);
-    free(item2);
-    free(item1);
     free_queue(q);
 }
 
@@ -336,7 +324,7 @@ static void test_big_queue_iteration() {
     const int BIG = 10000;
     struct owl_queue *q = new_queue(BIG);
     for(int i = 0; i < BIG; i++) {
-       append_to_queue(q, create_dummy_item());
+       append_to_queue(q, new_track());
     }
 
     if(queue_size(q) != BIG) {
@@ -351,24 +339,13 @@ static void test_big_queue_iteration() {
         }
     }
 
-    // Cleanup
-    for(int i = 0; i < BIG; i++) {
-        void *item = pop_from_queue(q);
-        free(item);
-    }
-
-    if(queue_size(q) != 0) {
-        FAILURE("Expected queue size to be 0 but size is %d\n", queue_size(q));
-    }
-    TEST;
-
     free_queue(q);
 }
 
 static void test_can_pop_and_later_add_empty_queue() {
     struct owl_queue *q = new_queue(5);
 
-    void* item1 = create_dummy_item();
+    void* item1 = new_track();
 
     pop_from_queue(q);
     append_to_queue(q, item1);
@@ -378,7 +355,6 @@ static void test_can_pop_and_later_add_empty_queue() {
     }
     TEST;
 
-    free(item1);
     free_queue(q);
 }
 

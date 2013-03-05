@@ -22,7 +22,7 @@
 #include "utils.h"
 #include "settings.h"
 #include "queue.h"
-#include "errors.h"
+#include "constants.h"
 #include "logging.h"
 
 // Setup the max string lenght for various of objects
@@ -40,20 +40,5 @@ void free_spotify_state(spotify_state *state) {
     if(state->session != NULL)
         sp_session_release(state->session); // Ignore error, what to do..
     free(state);
-}
-
-owl_track* new_track() {
-    owl_track* track = malloc(sizeof(owl_track));
-    track->link = NULL;
-    track->json = NULL;
-    return track;
-}
-
-//
-// Frees any resources allocated when creating the track.
-//
-void free_track(struct owl_track *track) {
-    free(track->link);
-    free(track->json);
-    free(track);
+    state = NULL;
 }

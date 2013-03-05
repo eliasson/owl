@@ -40,16 +40,9 @@
 #include "utils.h"
 #include "spotify.h"
 #include "spotify_key.h"
-#include "errors.h"
+#include "constants.h"
 
-// States in the application state machine
-#define OWL_STATE_NOT_STARTED       0x01    // Application is not fully started yet (initial state)
-#define OWL_STATE_INITIALIZED       0x02    // Application is initialized, but user is not logged in
-#define OWL_STATE_LOGGING_IN        0x03    // Application is trying to login to Spotify
-#define OWL_STATE_IDLE              0x04    // User is logged in, but no ongoing activity
-#define OWL_STATE_PLAYING           0x05    // User is logged in and playing music
-#define OWL_STATE_LOGGING_OUT       0x06    // Application is trying to logout from Spotify
-#define OWL_STATE_SHUTTING_DOWN     0x07    // Application is shutting down
+
 
 // Global data
 char *doc_root = "static";                  // Relative path to static pages
@@ -139,6 +132,35 @@ static void respond_error(struct evhttp_request *http_request, int code, const c
 }
 
 //
+// Respond client with Owl's queue.
+//
+// Format:
+//   { queue : [
+//     { "id" : <link>, "artist" : "<artist>", "title" : "<title>", "duration" : int, "album" : "<album>" },
+//     { "id" : <link>, "artist" : "<artist>", "title" : "<title>", "duration" : int, "album" : "<album>" },
+//     { "id" : <link>, "artist" : "<artist>", "title" : "<title>", "duration" : int, "album" : "<album>" }]
+//
+static void respond_with_queue(struct evhttp_request *http_request, struct owl_queue *queue) {
+    TRACE("Responding with queue\n");
+    const int size = queue_size(queue);
+
+    struct evbuffer *content_buffer = evbuffer_new();
+    evbuffer_add_printf(content_buffer, "{ \"queue\" : [");
+
+    for(int i = 0; i < size; i++) {
+        const owl_track *track = item_at(queue, i);
+        evbuffer_add_printf(content_buffer, "%s", track->json);
+
+        if(i < (size -1))
+            evbuffer_add_printf(content_buffer, ",");
+    }
+    evbuffer_add_printf(content_buffer, "]}");
+
+    evhttp_add_header(evhttp_request_get_output_headers(http_request), "Content-type", "application/json; charset=UTF-8");
+    evhttp_send_reply(http_request, HTTP_OK, USER_AGENT, content_buffer);
+}
+
+//
 // -- Spotify callbacks ---------------------------------------------------------------------------
 //
 static void logged_in_callback(sp_session *session, sp_error error) {
@@ -198,7 +220,6 @@ static int initialize_spotify(struct owl_state* state) {
         .user_agent = USER_AGENT,
         .userdata = (void*)state,
     };
-    
 
     const int error = sp_session_create(&session_config, &(state->spotify_state->session));
     if (SP_ERROR_OK != error) {
@@ -235,6 +256,32 @@ static void shutdown_action(struct owl_state* state) {
 
     event_del(state->sigint);
     event_active(state->sigint, 0, 1);
+}
+
+//
+// Action handler that tries to login the given user to Spotify
+//
+static void login_to_spotify_action(struct owl_state* state, char* username, char* password) {
+    TRACE("Logging in to Spotify...\n");
+
+    state->state = OWL_STATE_LOGGING_IN;
+
+    const sp_error error = sp_session_login(state->spotify_state->session, username, password, 0, NULL);
+    if(error != SP_ERROR_OK) {
+        ERROR("Failed to login to Spotify: %s\n", sp_error_message(error));
+        respond_error(state->http_request, OWL_HTTP_ERROR_LOGIN, sp_error_message(error));
+    }
+}
+
+// 
+// Action handler that logs out the current user from Spotify. No side-effect if the
+// user is not logged in.
+//
+static void logout_from_spotify_action(struct owl_state* state) {
+    TRACE("Logging out from Spotify...\n");
+
+    state->state = OWL_STATE_LOGGING_OUT;
+    sp_session_logout(state->spotify_state->session);
 }
 
 //
@@ -319,6 +366,58 @@ static void http_handler(struct evhttp_request *request, void *userdata) {
     // Shutdown owl application (async)
     else if(string_starts_with(uri, "/api/shutdown")) {
         shutdown_action(state);
+    }
+
+    //
+    // Try to login to Spotify (async)
+    else if(string_starts_with(uri, "/api/login")) {
+        char* username = extract_uri_section(2, uri);
+        char* password = extract_uri_section(3, uri);
+
+        if(username != NULL && password != NULL) {
+            login_to_spotify_action(state, username, password);
+        }
+        else {
+            WARN("Could not extract username and password in order to login to Spotify!\n");
+            respond_error(request, OWL_HTTO_ERROR_NO_LOGIN_DETAILS, "No username or password given");
+        }
+    }
+
+    //
+    // Logout from spotify (async)
+    else if(string_starts_with(uri, "/api/logout")) {
+        if(state->state > OWL_STATE_LOGGING_IN && state->state < OWL_STATE_LOGGING_OUT)
+            logout_from_spotify_action(state);
+        else
+            respond_success(request);
+    }
+
+    //
+    // Clear the entire queue
+    else if(string_starts_with(uri, "/api/queue/clear")) {
+        if(state->state < OWL_STATE_IDLE || state->state > OWL_STATE_PLAYING) {
+            respond_error(request, OWL_HTTP_ERROR_NOT_LOGGED_IN, "Operation not allowed when not logged in");
+        }
+        else {
+            const int size = queue_size(state->spotify_state->queue);
+            for(int i = 0; i < size; i++) {
+                owl_track *track = pop_from_queue(state->spotify_state->queue);
+                free_track(track);
+            }
+            respond_success(request);
+        }
+    }
+
+    //
+    // Get the current playback queue (sync)
+    else if(string_starts_with(uri, "/api/queue") && http_method == EVHTTP_REQ_GET) {
+        if(state->state < OWL_STATE_IDLE || state->state > OWL_STATE_PLAYING) {
+            WARN("Operation not allowed at this state (%d)\n", state->state);
+            respond_error(request, OWL_HTTP_ERROR_NOT_LOGGED_IN, "Operation not allowed when not logged in");
+        }
+        else {
+            respond_with_queue(state->http_request, state->spotify_state->queue);
+        }
     }
 
     //
