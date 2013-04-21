@@ -35,14 +35,13 @@
 #include <sys/stat.h>
 
 // Application
+#include "constants.h"
 #include "settings.h"
 #include "logging.h"
 #include "utils.h"
+#include "evutils.h"
 #include "spotify.h"
 #include "spotify_key.h"
-#include "constants.h"
-
-
 
 // Global data
 char *doc_root = "static";                  // Relative path to static pages
@@ -351,26 +350,26 @@ static void http_handler(struct evhttp_request *request, void *userdata) {
         return;
     }
 
-    TRACE("Received HTTP request: %s\n", uri);
+    TRACE("Received HTTP request: %s (method %d)\n", uri, http_method);
 
     // Keep the request for async usage
     state->http_request = request;
 
     //
     // Retrieve application state (sync)
-    if(string_starts_with(uri, "/api/state")) {
+    if(string_starts_with(uri, "/api/state") && http_method == EVHTTP_REQ_GET) {
         state_action(state);
     }
 
     //
     // Shutdown owl application (async)
-    else if(string_starts_with(uri, "/api/shutdown")) {
+    else if(string_starts_with(uri, "/api/shutdown") && http_method == EVHTTP_REQ_GET) {
         shutdown_action(state);
     }
 
     //
     // Try to login to Spotify (async)
-    else if(string_starts_with(uri, "/api/login")) {
+    else if(string_starts_with(uri, "/api/login") && http_method == EVHTTP_REQ_GET) {
         char* username = extract_uri_section(2, uri);
         char* password = extract_uri_section(3, uri);
 
@@ -383,9 +382,15 @@ static void http_handler(struct evhttp_request *request, void *userdata) {
         }
     }
 
+    else if(string_starts_with(uri, "/api/login") && http_method == EVHTTP_REQ_POST) {
+        TRACE("POST LOGIN\n");
+        get_post_argument(request, "username");
+        evhttp_send_error(request, 501, "Not Implemented");
+    }
+
     //
     // Logout from spotify (async)
-    else if(string_starts_with(uri, "/api/logout")) {
+    else if(string_starts_with(uri, "/api/logout") && http_method == EVHTTP_REQ_GET) {
         if(state->state > OWL_STATE_LOGGING_IN && state->state < OWL_STATE_LOGGING_OUT)
             logout_from_spotify_action(state);
         else
@@ -394,7 +399,7 @@ static void http_handler(struct evhttp_request *request, void *userdata) {
 
     //
     // Clear the entire queue
-    else if(string_starts_with(uri, "/api/queue/clear")) {
+    else if(string_starts_with(uri, "/api/queue/clear") && http_method == EVHTTP_REQ_GET) {
         if(state->state < OWL_STATE_IDLE || state->state > OWL_STATE_PLAYING) {
             respond_error(request, OWL_HTTP_ERROR_NOT_LOGGED_IN, "Operation not allowed when not logged in");
         }

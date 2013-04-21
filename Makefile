@@ -2,8 +2,8 @@ CFLAGS = -std=c99 -Wall -I/usr/local/include/
 LDLIBS = -lpthread -lspotify -levent
 LDFLAGS = -Wl,-rpath,/usr/local/lib -L/usr/local/lib/
 
-SOURCES = src/logging.c src/utils.c src/queue.c src/owl.c src/spotify.c
-TEST_SOURCES = src/logging.c src/utils.c src/queue.c test/test.c
+SOURCES = src/logging.c src/string.c src/utils.c src/evutils.c src/queue.c src/owl.c src/spotify.c
+TEST_SOURCES = src/logging.c src/string.c src/utils.c src/queue.c test/test.c test/test_string.c test/test_queue.c test/test_utils.c
 
 .SILENT: owl test unittest clean clean-test
 

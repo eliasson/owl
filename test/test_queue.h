@@ -14,12 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#ifndef OWL_SETTINGS_H
-#define OWL_SETTINGS_H
+#ifndef OWL_TEST_QUEUE_H
+#define OWL_TEST_QUEUE_H
 
-// Application settings
-#define MAX_PENDING_CONNECTIONS             100                 // The max number of pending HTTP request
-#define BUFFER_SIZE                         1024                // Client request buffer size in bytes
-#define USER_AGENT                          "OWL/0.1"           // HTTP User-Agent header
+void run_queue_tests();
 
-#endif // OWL_SETTINGS_H
+#endif // OWL_TEST_QUEUE_H

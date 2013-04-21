@@ -17,6 +17,16 @@
 #ifndef OWL_CONSTANTS_H
 #define OWL_CONSTANTS_H
 
+// Common stuff
+#define TRUE                                1
+#define FALSE                               0
+
+// C errors
+#define OWL_OK                              0x00
+#define OWL_ERROR_GENERAL                   0x01
+#define OWL_ERROR_NOT_INITIALIZED           0x02
+#define OWL_ERROR_NOT_LOGGED_IN             0x03
+
 // States in the application state machine
 #define OWL_STATE_NOT_STARTED               0x01    // Application is not fully started yet (initial state)
 #define OWL_STATE_INITIALIZED               0x02    // Application is initialized, but user is not logged in

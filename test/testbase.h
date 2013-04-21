@@ -14,12 +14,20 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#ifndef OWL_SETTINGS_H
-#define OWL_SETTINGS_H
+#ifndef OWL_TESTBASE_H
+#define OWL_TESTBASE_H
 
-// Application settings
-#define MAX_PENDING_CONNECTIONS             100                 // The max number of pending HTTP request
-#define BUFFER_SIZE                         1024                // Client request buffer size in bytes
-#define USER_AGENT                          "OWL/0.1"           // HTTP User-Agent header
+#include "../src/logging.h"
 
-#endif // OWL_SETTINGS_H
+extern int TEST_COUNT;
+extern int TEST_FAILURES;
+
+// Use this when implementing a new test, this will increas the test counter
+#define TEST \
+    TEST_COUNT++;
+
+// Use this when a test failes, increase the failure counter
+#define FAILURE(format, arg...) \
+     TEST_FAILURES++; ERROR(format, ##arg)
+
+#endif // OWL_TESTBASE_H
